@@ -16,20 +16,22 @@ function fmt(total: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Pitido / bocina con Web Audio (sin assets). */
-function useBeeper() {
+/** Sonidos con Web Audio (sin assets): pitido de cuenta regresiva y
+ *  silbato de árbitro (tono ~3 kHz con trino) para inicio y término. */
+function useSound() {
   const ctxRef = useRef<AudioContext | null>(null);
   const ensure = () => {
     if (!ctxRef.current) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       if (AC) ctxRef.current = new AC();
     }
+    if (ctxRef.current?.state === "suspended") ctxRef.current.resume();
     return ctxRef.current;
   };
-  return useCallback((freq: number, dur: number, gain = 0.18) => {
+
+  const beep = useCallback((freq: number, dur: number, gain = 0.18) => {
     const ctx = ensure();
     if (!ctx) return;
-    if (ctx.state === "suspended") ctx.resume();
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = "square";
@@ -40,6 +42,44 @@ function useBeeper() {
     osc.start();
     osc.stop(ctx.currentTime + dur);
   }, []);
+
+  // Un silbatazo: tono agudo con "trino" (warble) y envolvente de ataque/caída.
+  const blast = (ctx: AudioContext, t0: number, dur: number, gain: number) => {
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(3150, t0);
+    const lfo = ctx.createOscillator(); // modula la frecuencia → trino del silbato
+    lfo.type = "sine";
+    lfo.frequency.value = 24;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 190;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.025);
+    g.gain.setValueAtTime(gain, t0 + Math.max(0.05, dur - 0.07));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+    lfo.start(t0);
+    lfo.stop(t0 + dur + 0.02);
+  };
+
+  const whistle = useCallback((kind: "inicio" | "fin") => {
+    const ctx = ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (kind === "inicio") {
+      blast(ctx, t, 0.5, 0.3); // un silbatazo de arranque
+    } else {
+      blast(ctx, t, 0.45, 0.3); // término: tres silbatazos
+      blast(ctx, t + 0.6, 0.45, 0.3);
+      blast(ctx, t + 1.2, 0.9, 0.32);
+    }
+  }, []);
+
+  return { beep, whistle };
 }
 
 export default function TimerScreen({ initialMinutes, golesObjetivo, ronda }: TimerScreenProps) {
@@ -49,7 +89,11 @@ export default function TimerScreen({ initialMinutes, golesObjetivo, ronda }: Ti
   const [sound, setSound] = useState(true);
   const [ready, setReady] = useState(false);
   const targetRef = useRef<number>(0);
-  const beep = useBeeper();
+  const { beep, whistle } = useSound();
+  const soundRef = useRef(sound);
+  useEffect(() => {
+    soundRef.current = sound;
+  }, [sound]);
   const corriendo = fase === "corriendo";
 
   const save = useCallback(
@@ -105,10 +149,7 @@ export default function TimerScreen({ initialMinutes, golesObjetivo, ronda }: Ti
         clearInterval(id);
         setFase("tiempo");
         save({ fase: "tiempo", secs: 0, target: 0 });
-        if (sound) {
-          beep(180, 1.2, 0.25);
-          setTimeout(() => beep(140, 1.4, 0.25), 250);
-        }
+        if (soundRef.current) whistle("fin"); // silbato de término
       }
     }, 120);
     return () => clearInterval(id);
@@ -124,8 +165,9 @@ export default function TimerScreen({ initialMinutes, golesObjetivo, ronda }: Ti
   const start = useCallback(() => {
     if (secs <= 0) return;
     targetRef.current = Date.now() + secs * 1000;
+    if (soundRef.current) whistle("inicio"); // silbato de inicio
     setFase("corriendo");
-  }, [secs]);
+  }, [secs, whistle]);
 
   const pausa = useCallback(() => {
     setFase("pausa");

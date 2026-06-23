@@ -15,10 +15,8 @@ const { title, active = "cronometro", bare = false } = Astro.props;
 
 const nav = [
   { key: "1", href: "/", id: "cronometro", label: "Cronómetro", icon: "⏱" },
-  { key: "2", href: "/estadios", id: "estadios", label: "Estadios 3D", icon: "🏟" },
-  { key: "3", href: "/mesas", id: "mesas", label: "Mesas", icon: "🗺" },
-  { key: "4", href: "/llave", id: "llave", label: "Resultados", icon: "🏆" },
-  { key: "5", href: "/gestionar", id: "gestionar", label: "Gestionar", icon: "⚙" },
+  { key: "2", href: "/estadios", id: "estadios", label: "Estadios", icon: "🏟" },
+  { key: "3", href: "/gestionar", id: "gestionar", label: "Gestionar", icon: "⚙" },
 ];
 ---
 
@@ -109,9 +107,7 @@ const nav = [
       const routes: Record<string, string> = {
         "1": "/",
         "2": "/estadios",
-        "3": "/mesas",
-        "4": "/llave",
-        "5": "/gestionar",
+        "3": "/gestionar",
       };
 
       function toggleFs() {

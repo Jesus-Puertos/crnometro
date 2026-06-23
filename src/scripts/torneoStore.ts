@@ -151,6 +151,11 @@ export function estaEliminado(teamId: string, partidos: PartidoLibre[]): boolean
   });
 }
 
+/** Equipos que siguen en competencia (no han perdido). */
+export function equiposVivos(equipos: Equipo[], partidos: PartidoLibre[]): Equipo[] {
+  return equipos.filter((e) => !estaEliminado(e.id, partidos));
+}
+
 /** Partido más relevante de una mesa: el que está en juego, si no el último. */
 export function partidoDeMesa(mesaId: string, partidos: PartidoLibre[]): PartidoLibre | undefined {
   const enMesa = partidos.filter((p) => p.mesaId === mesaId);
