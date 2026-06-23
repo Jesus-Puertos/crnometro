@@ -1,0 +1,13 @@
+---
+interface Props {
+  n: number | string;
+  label: string;
+  tone?: string;
+}
+const { n, label, tone = "#ffffff" } = Astro.props;
+---
+
+<div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-center">
+  <div class="tabular text-3xl font-black leading-none" style={`color:${tone}`}>{n}</div>
+  <div class="mt-1 text-[10px] font-black uppercase tracking-[.18em] text-white/45">{label}</div>
+</div>

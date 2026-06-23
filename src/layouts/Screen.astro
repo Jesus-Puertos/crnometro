@@ -1,0 +1,150 @@
+---
+import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
+import Clock from "../components/Clock.tsx";
+import { EVENTO } from "../data/torneo";
+
+interface Props {
+  title?: string;
+  active?: "cronometro" | "estadios" | "mesas" | "llave" | "gestionar";
+  /** Oculta el header para pantallas 100% inmersivas si se desea. */
+  bare?: boolean;
+}
+
+const { title, active = "cronometro", bare = false } = Astro.props;
+
+const nav = [
+  { key: "1", href: "/", id: "cronometro", label: "Cronómetro", icon: "⏱" },
+  { key: "2", href: "/estadios", id: "estadios", label: "Estadios 3D", icon: "🏟" },
+  { key: "3", href: "/mesas", id: "mesas", label: "Mesas", icon: "🗺" },
+  { key: "4", href: "/llave", id: "llave", label: "Resultados", icon: "🏆" },
+  { key: "5", href: "/gestionar", id: "gestionar", label: "Gestionar", icon: "⚙" },
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>{title ? `${title} · ${EVENTO.titulo}` : EVENTO.titulo}</title>
+    {/* Navegación SPA: mantiene la pantalla completa al cambiar de vista */}
+    <ClientRouter />
+  </head>
+  <body class="kiosk stadium-bg min-h-screen">
+    <div class="pitch-dots fixed inset-0 -z-10 opacity-60"></div>
+
+    {
+      !bare && (
+        <header class="sticky top-0 z-50 border-b border-white/10 bg-black/45 backdrop-blur-xl">
+          <div class="mx-auto flex max-w-[1800px] items-center gap-4 px-5 py-3 sm:px-8">
+            {/* Marca */}
+            <a href="/" class="flex items-center gap-3 shrink-0">
+              <img
+                src="/brand/logo_mundial.png"
+                alt={EVENTO.titulo}
+                class="logo-glow h-12 w-auto sm:h-14"
+              />
+              <span class="hidden flex-col leading-tight lg:flex">
+                <span class="text-[10px] font-black uppercase tracking-[.2em] text-mundo-orange">
+                  H. Ayuntamiento de Zongolica
+                </span>
+                <span class="text-sm font-extrabold text-white/85">{EVENTO.subtitulo}</span>
+              </span>
+            </a>
+
+            {/* Navegación */}
+            <nav class="mx-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] p-1.5">
+              {nav.map((item) => (
+                <a
+                  href={item.href}
+                  data-nav-key={item.key}
+                  class:list={[
+                    "group flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-bold transition sm:px-5",
+                    active === item.id
+                      ? "bg-gradient-to-r from-mundo-orange to-mundo-orange-bright text-black shadow-md shadow-orange-900/40"
+                      : "text-white/65 hover:bg-white/10 hover:text-white",
+                  ]}
+                >
+                  <span class="text-base">{item.icon}</span>
+                  <span class="hidden sm:inline">{item.label}</span>
+                  <kbd
+                    class:list={[
+                      "ml-0.5 hidden rounded px-1.5 text-[10px] font-black md:inline",
+                      active === item.id ? "bg-black/20 text-black/70" : "bg-white/10 text-white/40",
+                    ]}
+                  >
+                    {item.key}
+                  </kbd>
+                </a>
+              ))}
+            </nav>
+
+            {/* Reloj + pantalla completa */}
+            <div class="flex shrink-0 items-center gap-4">
+              <Clock client:load />
+              <button
+                id="fs-btn"
+                title="Pantalla completa (F)"
+                class="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition hover:bg-white/10 hover:text-white"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </header>
+      )
+    }
+
+    <main class="relative">
+      <slot />
+    </main>
+
+    <script>
+      import { navigate } from "astro:transitions/client";
+
+      const routes: Record<string, string> = {
+        "1": "/",
+        "2": "/estadios",
+        "3": "/mesas",
+        "4": "/llave",
+        "5": "/gestionar",
+      };
+
+      function toggleFs() {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+        else document.exitFullscreen?.();
+      }
+
+      // Se registra una sola vez; el documento persiste entre vistas (SPA),
+      // así la pantalla completa NO se cierra al cambiar de pantalla.
+      const w = window as unknown as { __kioskInit?: boolean };
+      if (!w.__kioskInit) {
+        w.__kioskInit = true;
+        document.addEventListener("keydown", (e) => {
+          const t = e.target as HTMLElement | null;
+          if (
+            t instanceof HTMLInputElement ||
+            t instanceof HTMLTextAreaElement ||
+            t instanceof HTMLSelectElement
+          )
+            return;
+          if (routes[e.key]) {
+            e.preventDefault();
+            navigate(routes[e.key]); // navegación SPA: conserva el fullscreen
+          } else if (e.key.toLowerCase() === "f") {
+            toggleFs();
+          }
+        });
+      }
+
+      // El botón de pantalla completa se reasigna en cada vista.
+      document.addEventListener("astro:page-load", () => {
+        document.getElementById("fs-btn")?.addEventListener("click", toggleFs);
+      });
+    </script>
+  </body>
+</html>

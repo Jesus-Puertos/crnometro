@@ -1,0 +1,155 @@
+---
+import Screen from "../layouts/Screen.astro";
+import SponsorCarousel from "../components/SponsorCarousel.astro";
+import { ESTADIOS, EVENTO, negociosDe } from "../data/torneo";
+
+const mesas = ESTADIOS.map((e) => ({ e, negocios: negociosDe(e) }));
+---
+
+<Screen title="Mesas" active="mesas">
+  <section class="mx-auto max-w-[1800px] px-5 py-6 sm:px-8">
+    <div class="animate-rise mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-[.3em] text-mundo-orange">
+          {EVENTO.sede} · {EVENTO.municipio}
+        </p>
+        <h1 class="mt-1 text-4xl font-black leading-none text-white sm:text-5xl">
+          Las {ESTADIOS.length} Mesas del Mundialito
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm font-semibold text-white/55">
+          Cada mesa es un Estadio Oficial con el nombre de su negocio. Aquí ves el partido en curso de cada una.
+        </p>
+      </div>
+      <div class="flex gap-3">
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-center">
+          <div class="tabular text-3xl font-black leading-none text-white">{ESTADIOS.length}</div>
+          <div class="mt-1 text-[10px] font-black uppercase tracking-[.18em] text-white/45">Mesas</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-center">
+          <div data-stat="enjuego" class="tabular text-3xl font-black leading-none text-mundo-green-neon">0</div>
+          <div class="mt-1 text-[10px] font-black uppercase tracking-[.18em] text-white/45">En juego</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-center">
+          <div data-stat="equipos" class="tabular text-3xl font-black leading-none text-mundo-orange">0</div>
+          <div class="mt-1 text-[10px] font-black uppercase tracking-[.18em] text-white/45">Equipos</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        mesas.map(({ e, negocios }, i) => (
+          <article
+            class="group relative overflow-hidden rounded-3xl border p-5 transition duration-300 hover:-translate-y-1"
+            style={`border-color:${e.acento}44; background:linear-gradient(155deg, ${e.acento}1f, rgba(7,14,11,.86) 62%); animation: rise .6s cubic-bezier(.16,1,.3,1) both; animation-delay:${i * 45}ms`}
+            data-estadio={e.id}
+            data-estelar={e.estelar ? "1" : ""}
+          >
+            <div
+              class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-30 blur-2xl transition group-hover:opacity-50"
+              style={`background:${e.acento}`}
+            />
+            <div class="relative mb-4 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black text-black" style={`background:${e.acento}`}>
+                  {e.numero}
+                </span>
+                {negocios.some((n) => n.logo) ? (
+                  <span class="flex h-16 shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-2xl bg-white/95 px-2.5">
+                    {negocios.map((n) => n.logo && <img src={n.logo} alt={n.nombre} class="h-11 w-auto max-w-28 object-contain" />)}
+                  </span>
+                ) : (
+                  <span class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-xl font-black text-white" style={`background:${negocios[0]?.color ?? e.acento}`}>
+                    {negocios[0]?.iniciales ?? e.numero}
+                  </span>
+                )}
+                <div class="min-w-0 leading-tight">
+                  <p class="text-[9px] font-black uppercase tracking-[.2em] text-mundo-orange">Estadio Oficial</p>
+                  <h2 class="text-base font-black leading-tight text-white">
+                    {negocios.length ? negocios.map((n) => n.nombre).join(" y ") : `Mesa ${e.numero}`}
+                  </h2>
+                </div>
+              </div>
+              <span data-mesa-estado class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black" style="background:#ffffff14;color:#94a3b8">
+                <span data-mesa-dot class="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                <span data-mesa-label>{e.estelar ? "GRAN FINAL" : "—"}</span>
+              </span>
+            </div>
+
+            <div class="relative rounded-2xl border border-white/10 bg-black/30 p-3.5" data-enf>
+              <p class="py-6 text-center text-sm font-bold text-white/40">Cargando…</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <SponsorCarousel tiers={["plata", "bronce"]} label="Patrocinadores Plata y Bronce" speedSeconds={30} />
+</Screen>
+
+<script>
+  import { getPartidos, partidoDeMesa, ladoGanador, getEquipos } from "../scripts/torneoStore";
+  import { getEquipo } from "../data/torneo";
+
+  const esc = (s: unknown) =>
+    String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  const META: Record<string, { l: string; c: string }> = {
+    proximo: { l: "PRÓXIMO", c: "#ff9e2c" },
+    jugando: { l: "EN JUEGO", c: "#39ff95" },
+    finalizado: { l: "FINALIZADO", c: "#94a3b8" },
+  };
+  const FASE_L: Record<string, string> = { clasificatorio: "Clasificatorio", semifinal: "Semifinal", final: "Gran Final" };
+
+  function patch() {
+    const partidos = getPartidos();
+    const equipos = getEquipos();
+    const nom = (id: string | null) => (id ? getEquipo(id, equipos)?.nombre ?? "Por definir" : "Por definir");
+    const col = (id: string | null) => (id ? getEquipo(id, equipos)?.color ?? "#64748b" : "#64748b");
+
+    const en = document.querySelector('[data-stat="enjuego"]');
+    if (en) en.textContent = String(partidos.filter((p) => p.estado === "jugando").length);
+    const te = document.querySelector('[data-stat="equipos"]');
+    if (te) te.textContent = String(equipos.length);
+
+    const teamRow = (id: string | null, marc: number, win: boolean) =>
+      `<div class="flex items-center justify-between gap-3"><div class="flex min-w-0 items-center gap-2.5"><span class="h-3 w-3 shrink-0 rounded-full" style="background:${col(id)}"></span><span class="truncate text-base font-extrabold ${win ? "text-mundo-green-neon" : "text-white"}">${esc(nom(id))}</span>${win ? '<span class="text-mundo-green-neon">✓</span>' : ""}</div><span class="tabular shrink-0 text-2xl font-black ${win ? "text-mundo-green-neon" : "text-white/90"}">${marc}</span></div>`;
+
+    document.querySelectorAll<HTMLElement>("[data-estadio]").forEach((card) => {
+      const p = partidoDeMesa(card.dataset.estadio!, partidos);
+      const badge = card.querySelector<HTMLElement>("[data-mesa-estado]");
+      const label = card.querySelector<HTMLElement>("[data-mesa-label]");
+      const dot = card.querySelector<HTMLElement>("[data-mesa-dot]");
+      const enf = card.querySelector<HTMLElement>("[data-enf]");
+      const estado = p?.estado ?? "proximo";
+      const m = META[estado];
+      const playing = estado === "jugando";
+      if (badge) {
+        badge.style.color = p ? m.c : "#64748b";
+        badge.style.background = (p ? m.c : "#64748b") + "1f";
+      }
+      if (label) label.textContent = card.dataset.estelar ? "GRAN FINAL" : p ? m.l : "SIN PARTIDO";
+      if (dot) {
+        dot.style.background = p ? m.c : "#64748b";
+        dot.classList.toggle("animate-ping", playing);
+      }
+      card.classList.toggle("ring-2", playing);
+      card.classList.toggle("ring-mundo-green-neon/70", playing);
+      if (enf) {
+        if (!p) {
+          enf.innerHTML = `<p class="py-6 text-center text-sm font-bold text-white/40">Sin partido programado</p>`;
+        } else {
+          const lado = ladoGanador(p);
+          enf.innerHTML =
+            `<div class="space-y-2.5">${teamRow(p.teamA, p.marcadorA, lado === "A")}` +
+            `<div class="flex items-center gap-2"><span class="h-px flex-1 bg-white/10"></span><span class="text-[10px] font-black tracking-widest text-white/35">VS</span><span class="h-px flex-1 bg-white/10"></span></div>` +
+            `${teamRow(p.teamB, p.marcadorB, lado === "B")}` +
+            `<p class="pt-1 text-center text-[10px] font-bold uppercase tracking-wider text-white/40">${FASE_L[p.fase]}</p></div>`;
+        }
+      }
+    });
+  }
+
+  document.addEventListener("astro:page-load", patch);
+  window.addEventListener("storage", patch);
+</script>

@@ -1,0 +1,144 @@
+---
+import Screen from "../layouts/Screen.astro";
+import { REGLAS } from "../data/torneo";
+---
+
+<Screen title="Resultados" active="llave">
+  <section class="mx-auto max-w-[1500px] px-5 py-6 sm:px-8">
+    <div class="animate-rise mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-[.3em] text-mundo-orange">Eliminación directa</p>
+        <h1 class="mt-1 text-4xl font-black leading-none text-white sm:text-5xl">Resultados</h1>
+      </div>
+      <div class="flex gap-2">
+        <span class="rounded-xl bg-[#ffcb45]/15 px-3 py-1.5 text-xs font-black text-[#ffcb45]">🥇 1° {REGLAS.premios.primero}</span>
+        <span class="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-black text-white/80">🥈 2° {REGLAS.premios.segundo}</span>
+        <span class="rounded-xl bg-mundo-orange/15 px-3 py-1.5 text-xs font-black text-mundo-orange-bright">⚽ Goleador {REGLAS.premios.goleador}</span>
+        <a href="/gestionar" class="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold text-white/70 transition hover:text-white">⚙ Gestionar</a>
+      </div>
+    </div>
+
+    {/* Fase final (llave chica) */}
+    <h2 class="mb-3 flex items-center gap-3 text-xs font-black uppercase tracking-[.25em] text-mundo-orange">
+      <span class="h-px w-8 bg-white/15"></span> Fase final
+    </h2>
+    <div id="finals" class="mb-8 overflow-x-auto"></div>
+
+    {/* Vivos / eliminados */}
+    <h2 class="mb-3 flex items-center gap-3 text-xs font-black uppercase tracking-[.25em] text-mundo-orange">
+      <span class="h-px w-8 bg-white/15"></span> Equipos
+    </h2>
+    <div id="equipos-estado" class="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2"></div>
+
+    {/* Partidos jugados */}
+    <h2 class="mb-3 flex items-center gap-3 text-xs font-black uppercase tracking-[.25em] text-mundo-orange">
+      <span class="h-px w-8 bg-white/15"></span> Partidos
+    </h2>
+    <div id="partidos-jugados" class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"></div>
+  </section>
+</Screen>
+
+<script>
+  import {
+    getPartidos,
+    getEquipos,
+    equiposVivos,
+    estaEliminado,
+    equipoGanador,
+    ladoGanador,
+  } from "../scripts/torneoStore";
+  import { getEquipo, getEstadio } from "../data/torneo";
+
+  const esc = (s: unknown) =>
+    String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+  const ESTADO_META: Record<string, { l: string; c: string }> = {
+    proximo: { l: "PRÓXIMO", c: "#ff9e2c" },
+    jugando: { l: "EN JUEGO", c: "#39ff95" },
+    finalizado: { l: "FINAL", c: "#94a3b8" },
+  };
+
+  function render() {
+    const partidos = getPartidos();
+    const equipos = getEquipos();
+    const eq = (id: string | null) => (id ? getEquipo(id, equipos) : undefined);
+    const nom = (id: string | null) => eq(id)?.nombre ?? "Por definir";
+    const col = (id: string | null) => eq(id)?.color ?? "#475569";
+    const mesa = (mid: string) => getEstadio(mid)?.numero;
+
+    /* ---- Tarjeta de partido (para fase final) ---- */
+    const matchCard = (p: any, final = false) => {
+      const lado = ladoGanador(p);
+      const slot = (id: string | null, marc: number, win: boolean) =>
+        `<div class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${win ? "bg-mundo-green-neon/10" : ""} ${lado && !win ? "opacity-50" : ""}">
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${col(id)}"></span>
+            <span class="truncate text-sm font-extrabold ${win ? "text-mundo-green-neon" : "text-white"}">${esc(nom(id))}</span>
+          </span>
+          <span class="text-lg font-black tabular-nums ${win ? "text-mundo-green-neon" : "text-white/90"}">${p.estado === "proximo" && !id ? "–" : marc}</span>
+        </div>`;
+      const m = ESTADO_META[p.estado];
+      return `<div class="w-60 shrink-0 rounded-2xl border ${final ? "border-mundo-orange/50" : "border-white/12"} bg-black/45 p-3" style="${final ? "box-shadow:0 0 28px rgba(255,130,0,.22)" : ""}">
+        <div class="mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/45">
+          <span>${mesa(p.mesaId) ? "Mesa " + mesa(p.mesaId) : "—"}</span>
+          <span style="color:${m.c}">${m.l}</span>
+        </div>
+        ${slot(p.teamA, p.marcadorA, lado === "A")}
+        <div class="my-1"></div>
+        ${slot(p.teamB, p.marcadorB, lado === "B")}
+      </div>`;
+    };
+
+    /* ---- Fase final ---- */
+    const semis = partidos.filter((p) => p.fase === "semifinal");
+    const finalP = partidos.filter((p) => p.fase === "final").slice(-1)[0];
+    const finals = document.getElementById("finals");
+    if (finals) {
+      if (!semis.length && !finalP) {
+        finals.innerHTML = `<p class="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm font-semibold text-white/45">La semifinal y la gran final aparecerán aquí cuando marques esos partidos en /gestionar.</p>`;
+      } else {
+        const campId = finalP ? equipoGanador(finalP) : null;
+        const champ = campId
+          ? `<div class="ml-2 flex w-52 shrink-0 flex-col items-center justify-center rounded-2xl border border-mundo-orange/50 bg-mundo-orange/10 p-4 text-center"><div class="text-4xl">🏆</div><p class="mt-1 text-[10px] font-black uppercase tracking-[.25em] text-mundo-orange">Campeón</p><p class="mt-1 text-xl font-black text-white">${esc(nom(campId))}</p></div>`
+          : `<div class="ml-2 flex w-52 shrink-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-center"><div class="text-4xl opacity-40">🏆</div><p class="mt-1 text-xs font-bold text-white/45">Por definir</p></div>`;
+        finals.innerHTML = `<div class="flex items-stretch gap-3">
+          ${semis.length ? `<div class="flex flex-col justify-center gap-3"><p class="text-[10px] font-black uppercase tracking-wider text-white/40">Semifinal</p>${semis.map((p) => matchCard(p)).join("")}</div>` : ""}
+          <div class="flex flex-col justify-center gap-3"><p class="text-[10px] font-black uppercase tracking-wider text-white/40">Gran Final</p>${finalP ? matchCard(finalP, true) : `<div class="grid h-24 w-60 place-items-center rounded-2xl border border-dashed border-white/15 text-xs font-bold text-white/35">Gran Final por definir</div>`}</div>
+          <div class="flex items-center">${champ}</div>
+        </div>`;
+      }
+    }
+
+    /* ---- Vivos / eliminados ---- */
+    const vivos = equiposVivos(equipos, partidos);
+    const elim = equipos.filter((e) => estaEliminado(e.id, partidos));
+    const chip = (e: any, muted = false) =>
+      `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${muted ? "border-white/10 text-white/40 line-through" : "border-mundo-green-neon/30 text-white"}"><span class="h-2 w-2 rounded-full" style="background:${e.color}"></span>${esc(e.nombre)}</span>`;
+    const ee = document.getElementById("equipos-estado");
+    if (ee) {
+      ee.innerHTML =
+        `<div class="rounded-2xl border border-mundo-green-neon/25 bg-mundo-green-neon/[0.04] p-4"><p class="mb-2 text-xs font-black uppercase tracking-wider text-mundo-green-neon">En competencia (${vivos.length})</p><div class="flex flex-wrap gap-1.5">${vivos.map((e) => chip(e)).join("") || '<span class="text-sm text-white/40">—</span>'}</div></div>` +
+        `<div class="rounded-2xl border border-white/10 bg-white/[0.02] p-4"><p class="mb-2 text-xs font-black uppercase tracking-wider text-white/45">Eliminados (${elim.length})</p><div class="flex flex-wrap gap-1.5">${elim.map((e) => chip(e, true)).join("") || '<span class="text-sm text-white/40">—</span>'}</div></div>`;
+    }
+
+    /* ---- Partidos jugados (finalizados, más recientes primero) ---- */
+    const jugados = partidos.filter((p) => p.estado !== "proximo").slice().reverse();
+    const FASE_L: Record<string, string> = { clasificatorio: "Clasificatorio", semifinal: "Semifinal", final: "Gran Final" };
+    const pj = document.getElementById("partidos-jugados");
+    if (pj) {
+      pj.innerHTML =
+        jugados
+          .map((p) => {
+            const lado = ladoGanador(p);
+            const row = (id: string | null, marc: number, win: boolean) =>
+              `<div class="flex items-center justify-between gap-2"><span class="flex min-w-0 items-center gap-1.5"><span class="h-2 w-2 shrink-0 rounded-full" style="background:${col(id)}"></span><span class="truncate text-sm font-bold ${win ? "text-mundo-green-neon" : "text-white/90"}">${esc(nom(id))}</span></span><span class="text-base font-black tabular-nums ${win ? "text-mundo-green-neon" : "text-white/70"}">${marc}</span></div>`;
+            return `<div class="rounded-xl border border-white/10 bg-black/30 p-3"><div class="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/40"><span>${mesa(p.mesaId) ? "Mesa " + mesa(p.mesaId) : "—"} · ${FASE_L[p.fase]}</span><span style="color:${ESTADO_META[p.estado].c}">${ESTADO_META[p.estado].l}</span></div>${row(p.teamA, p.marcadorA, lado === "A")}${row(p.teamB, p.marcadorB, lado === "B")}</div>`;
+          })
+          .join("") ||
+        `<p class="text-sm font-semibold text-white/40">Aún no hay partidos jugados.</p>`;
+    }
+  }
+
+  document.addEventListener("astro:page-load", render);
+  window.addEventListener("storage", render);
+</script>

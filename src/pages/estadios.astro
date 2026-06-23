@@ -1,0 +1,25 @@
+---
+import Screen from "../layouts/Screen.astro";
+import Stadium3D, { type EstadioVM } from "../components/Stadium3D.tsx";
+import { ESTADIOS, negociosDe, nombreEstadio } from "../data/torneo";
+
+// View-model estático para el componente 3D (client:only). El partido en vivo
+// lo calcula Stadium3D desde localStorage en el navegador.
+const estadios: EstadioVM[] = ESTADIOS.map((e) => ({
+  id: e.id,
+  numero: e.numero,
+  nombre: nombreEstadio(e),
+  negocios: negociosDe(e).map((n) => ({
+    nombre: n.nombre,
+    logo: n.logo,
+    iniciales: n.iniciales,
+    color: n.color,
+  })),
+  acento: e.acento,
+  estelar: e.estelar,
+}));
+---
+
+<Screen title="Estadios 3D" active="estadios">
+  <Stadium3D client:only="react" estadios={estadios} />
+</Screen>

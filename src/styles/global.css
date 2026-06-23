@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* Poppins — the institutional typeface */
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+@import "@fontsource/poppins/800.css";
+@import "@fontsource/poppins/900.css";
+
+/* ------------------------------------------------------------------ */
+/*  Design tokens — "Zongolica ¡Vive el Mundial!" big-screen theme     */
+/*  Dark stadium aesthetic · neon verde/naranja · naranja #ff8200      */
+/* ------------------------------------------------------------------ */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  /* Institutional + Mundial palette */
+  --color-mundo-orange: #ff8200;
+  --color-mundo-orange-bright: #ff9e2c;
+  --color-mundo-green: #1f9d55;
+  --color-mundo-green-deep: #0f5132;
+  --color-mundo-green-neon: #39ff95;
+  --color-mundo-night: #050a08;
+  --color-mundo-night-2: #0a1410;
+  --color-mundo-pitch: #0d2a1a;
+
+  --radius-pill: 999px;
+
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 2.4s ease-in-out infinite;
+  --animate-spin-slow: spin 18s linear infinite;
+  --animate-rise: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 14px rgba(255, 130, 0, 0.55)); }
+  50%      { opacity: 0.92; filter: drop-shadow(0 0 30px rgba(255, 130, 0, 0.9)); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--color-mundo-night);
+  color: #f4f7f5;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Big-screen base: prevent the cursor from sleeping mid-presentation */
+body.kiosk { cursor: default; }
+
+/* Stadium-night gradient backdrop reused across views */
+.stadium-bg {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(31, 157, 85, 0.25), transparent 60%),
+    radial-gradient(90% 70% at 100% 110%, rgba(255, 130, 0, 0.18), transparent 55%),
+    radial-gradient(80% 70% at 0% 110%, rgba(57, 255, 149, 0.12), transparent 55%),
+    linear-gradient(180deg, #05100b 0%, #050a08 55%, #03060a 100%);
+}
+
+/* Subtle pitch dot texture */
+.pitch-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px);
+  background-size: 30px 30px;
+}
+
+/* Neon framed panel — echoes the fondo_cronometro frame */
+.neon-frame {
+  position: relative;
+  border: 2px solid transparent;
+  border-radius: 28px;
+  background:
+    linear-gradient(var(--color-mundo-night-2), var(--color-mundo-night-2)) padding-box,
+    linear-gradient(135deg, var(--color-mundo-green-neon), var(--color-mundo-orange)) border-box;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(57, 255, 149, 0.18),
+    0 0 60px rgba(255, 130, 0, 0.14),
+    inset 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+.text-glow-orange { text-shadow: 0 0 18px rgba(255, 130, 0, 0.6), 0 0 44px rgba(255, 130, 0, 0.35); }
+.text-glow-green  { text-shadow: 0 0 18px rgba(57, 255, 149, 0.55), 0 0 44px rgba(31, 157, 85, 0.35); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Logo readability boost on dark backgrounds */
+.logo-glow { filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 22px rgba(255, 255, 255, 0.18)); }
+
+/* Hide scrollbars on kiosk screens but keep scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

@@ -1,0 +1,22 @@
+---
+interface Props {
+  nombre: string;
+  color: string;
+  score: number;
+  win?: boolean;
+}
+const { nombre, color, score, win = false } = Astro.props;
+---
+
+<div class:list={["flex items-center justify-between gap-3", win ? "" : ""]}>
+  <div class="flex min-w-0 items-center gap-2.5">
+    <span class="h-3 w-3 shrink-0 rounded-full" style={`background:${color}`}></span>
+    <span class:list={["truncate text-base font-extrabold", win ? "text-mundo-green-neon" : "text-white"]}>
+      {nombre}
+    </span>
+    {win && <span class="text-mundo-green-neon">✓</span>}
+  </div>
+  <span class:list={["tabular shrink-0 text-2xl font-black", win ? "text-mundo-green-neon" : "text-white/90"]}>
+    {score}
+  </span>
+</div>

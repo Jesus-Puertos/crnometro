@@ -1,0 +1,329 @@
+---
+import Screen from "../layouts/Screen.astro";
+---
+
+<Screen title="Gestionar" active="gestionar">
+  <section class="mx-auto max-w-[1400px] px-5 py-6 sm:px-8">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-[.3em] text-mundo-orange">
+          Panel del operador · se guarda solo en este equipo
+        </p>
+        <h1 class="mt-1 text-4xl font-black text-white sm:text-5xl">Gestionar torneo</h1>
+        <p class="mt-2 max-w-3xl text-sm font-semibold text-white/55">
+          Registra los <b class="text-white/80">equipos</b> y captura los <b class="text-white/80">partidos</b>
+          libremente (elige mesa y los dos equipos). Al finalizar un partido, el que pierde queda eliminado.
+          Marca la fase <b class="text-white/80">Semifinal</b> o <b class="text-white/80">Gran Final</b> para que
+          aparezcan en la llave. Todo se guarda solo en este navegador.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/llave" class="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white/75 transition hover:text-white">
+          Ver resultados →
+        </a>
+        <button id="reset-all" class="rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-500/20">
+          Reiniciar todo
+        </button>
+      </div>
+    </div>
+
+    {/* Pestañas */}
+    <div class="mb-6 flex w-fit gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+      <button data-tab="equipos" class="tab-btn rounded-full px-5 py-2 text-sm font-bold text-white/60 transition">
+        👥 Equipos
+      </button>
+      <button data-tab="partidos" class="tab-btn rounded-full px-5 py-2 text-sm font-bold text-white/60 transition">
+        ⚽ Partidos
+      </button>
+    </div>
+
+    {/* Vista Equipos */}
+    <div data-view="equipos">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-sm font-black uppercase tracking-[.2em] text-white/70">
+          Equipos registrados <span id="equipos-count" class="text-mundo-orange">(0)</span>
+        </h2>
+        <button id="add-equipo" class="rounded-full bg-gradient-to-r from-mundo-orange to-mundo-orange-bright px-4 py-1.5 text-sm font-black text-black shadow-md">
+          + Registrar equipo
+        </button>
+      </div>
+      <div id="equipos-list" class="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3"></div>
+    </div>
+
+    {/* Vista Partidos */}
+    <div data-view="partidos" hidden>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-sm font-black uppercase tracking-[.2em] text-white/70">
+          Partidos <span id="partidos-count" class="text-mundo-orange">(0)</span>
+        </h2>
+        <button id="add-partido" class="rounded-full bg-gradient-to-r from-mundo-orange to-mundo-orange-bright px-4 py-1.5 text-sm font-black text-black shadow-md">
+          + Agregar partido
+        </button>
+      </div>
+      <div id="partidos-list" class="grid grid-cols-1 gap-3 lg:grid-cols-2"></div>
+      <p id="partidos-vacio" class="mt-2 text-sm font-semibold text-white/40">
+        Aún no hay partidos. Pulsa “+ Agregar partido” para capturar el primero.
+      </p>
+    </div>
+  </section>
+</Screen>
+
+<script>
+  import {
+    getPartidos,
+    addPartido,
+    updatePartido,
+    deletePartido,
+    getEquipos,
+    addEquipo,
+    updateEquipo,
+    deleteEquipo,
+    resetAll,
+    golObjetivo,
+  } from "../scripts/torneoStore";
+  import { ESTADIOS, getEquipo, negociosDe } from "../data/torneo";
+
+  const selCls =
+    "rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-sm font-bold text-white outline-none focus:border-mundo-orange";
+  const slotSel =
+    "min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-sm font-extrabold text-white outline-none focus:border-mundo-orange";
+  const inp =
+    "w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-center text-lg font-black text-white outline-none focus:border-mundo-orange";
+
+  const escAttr = (s: unknown) =>
+    String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  const q = <T extends Element>(el: Element, sel: string) => el.querySelector(sel) as T | null;
+
+  /* ---------- Opciones ---------- */
+  function mesaLabel(e: { numero: number; id: string }) {
+    const negs = negociosDe(e as any)
+      .map((n) => n.nombre)
+      .join(" y ");
+    return `Mesa ${e.numero}${negs ? " · " + negs : ""}`;
+  }
+  function mesaOpts(sel: string) {
+    return ESTADIOS.map(
+      (e) => `<option value="${e.id}"${e.id === sel ? " selected" : ""}>${escAttr(mesaLabel(e))}</option>`,
+    ).join("");
+  }
+  function teamOpts(sel: string | null) {
+    return (
+      `<option value=""${!sel ? " selected" : ""}>— Equipo —</option>` +
+      getEquipos()
+        .map((e) => `<option value="${e.id}"${e.id === sel ? " selected" : ""}>${escAttr(e.nombre)}</option>`)
+        .join("")
+    );
+  }
+  function selOpts(pairs: [string, string][], sel: string) {
+    return pairs
+      .map(([v, l]) => `<option value="${v}"${v === sel ? " selected" : ""}>${l}</option>`)
+      .join("");
+  }
+  const FASES: [string, string][] = [
+    ["clasificatorio", "Clasificatorio"],
+    ["semifinal", "Semifinal"],
+    ["final", "Gran Final"],
+  ];
+  const ESTADOS: [string, string][] = [
+    ["proximo", "Próximo"],
+    ["jugando", "En juego"],
+    ["finalizado", "Finalizado"],
+  ];
+
+  /* ---------- Equipos ---------- */
+  function teamRowHTML(e: { id: string; nombre: string; jugadores: string[]; color: string }) {
+    const i = "w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white outline-none focus:border-mundo-orange";
+    return `<div class="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 p-2.5" data-team="${e.id}">
+      <input type="color" data-tf="color" value="${escAttr(e.color)}" title="Color" class="mt-0.5 h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-white/15 bg-transparent" />
+      <div class="min-w-0 flex-1">
+        <input data-tf="nombre" value="${escAttr(e.nombre)}" placeholder="Nombre del equipo" class="${i} text-sm font-extrabold" />
+        <div class="mt-1 flex gap-1">
+          <input data-tf="j1" value="${escAttr(e.jugadores?.[0])}" placeholder="Jugador 1" class="${i} text-xs text-white/80" />
+          <input data-tf="j2" value="${escAttr(e.jugadores?.[1])}" placeholder="Jugador 2" class="${i} text-xs text-white/80" />
+        </div>
+      </div>
+      <button data-del-team title="Borrar equipo" class="shrink-0 rounded-md border border-red-500/30 px-2 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/15">✕</button>
+    </div>`;
+  }
+  function renderEquipos() {
+    const list = getEquipos();
+    const cont = document.getElementById("equipos-list");
+    if (cont) cont.innerHTML = list.map(teamRowHTML).join("");
+    const cnt = document.getElementById("equipos-count");
+    if (cnt) cnt.textContent = `(${list.length})`;
+  }
+  function gatherEquipo(card: HTMLElement) {
+    const val = (tf: string) => q<HTMLInputElement>(card, `[data-tf="${tf}"]`)?.value ?? "";
+    updateEquipo(card.dataset.team!, {
+      nombre: val("nombre") || "Equipo",
+      jugadores: [val("j1"), val("j2")] as [string, string],
+      color: val("color") || "#64748b",
+    });
+  }
+
+  /* ---------- Partidos ---------- */
+  function partidoCardHTML(p: any) {
+    const nameOf = (id: string | null) => (id ? getEquipo(id, getEquipos())?.nombre ?? "A" : null);
+    const ga = `Gana: ${nameOf(p.teamA) ?? "A"}`;
+    const gb = `Gana: ${nameOf(p.teamB) ?? "B"}`;
+    return `<div class="rounded-2xl border border-white/10 bg-black/40 p-4" data-partido="${p.id}">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <select data-pf="fase" class="${selCls}">${selOpts(FASES, p.fase)}</select>
+        <button data-del-partido class="rounded-md border border-red-500/30 px-2.5 py-1 text-xs font-black text-red-300 transition hover:bg-red-500/15">Borrar</button>
+      </div>
+      <select data-pf="mesaId" class="${selCls} mb-3 w-full">${mesaOpts(p.mesaId)}</select>
+      <div class="mb-2 flex items-center gap-3">
+        <select data-pf="teamA" class="${slotSel}">${teamOpts(p.teamA)}</select>
+        <input data-pf="marcadorA" type="number" min="0" inputmode="numeric" value="${p.marcadorA}" class="${inp}" />
+      </div>
+      <div class="mb-3 flex items-center gap-3">
+        <select data-pf="teamB" class="${slotSel}">${teamOpts(p.teamB)}</select>
+        <input data-pf="marcadorB" type="number" min="0" inputmode="numeric" value="${p.marcadorB}" class="${inp}" />
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <select data-pf="estado" class="${selCls}">${selOpts(ESTADOS, p.estado)}</select>
+        <select data-pf="ganador" class="${selCls}">
+          <option value=""${!p.ganador ? " selected" : ""}>Ganador: auto</option>
+          <option value="A"${p.ganador === "A" ? " selected" : ""}>${ga}</option>
+          <option value="B"${p.ganador === "B" ? " selected" : ""}>${gb}</option>
+        </select>
+        <span data-gol class="ml-auto text-[11px] font-bold uppercase tracking-wider text-white/40">primero a ${golObjetivo(p.fase)}</span>
+      </div>
+    </div>`;
+  }
+  function renderPartidos() {
+    const list = getPartidos();
+    const cont = document.getElementById("partidos-list");
+    if (cont) cont.innerHTML = list.map(partidoCardHTML).join("");
+    const cnt = document.getElementById("partidos-count");
+    if (cnt) cnt.textContent = `(${list.length})`;
+    const vacio = document.getElementById("partidos-vacio");
+    if (vacio) vacio.hidden = list.length > 0;
+  }
+  function gatherPartido(card: HTMLElement) {
+    const v = (f: string) => q<HTMLInputElement | HTMLSelectElement>(card, `[data-pf="${f}"]`)?.value ?? "";
+    const num = (f: string) => Math.max(0, Math.trunc(Number(v(f)) || 0));
+    const g = v("ganador");
+    updatePartido(card.dataset.partido!, {
+      mesaId: v("mesaId"),
+      teamA: v("teamA") || null,
+      teamB: v("teamB") || null,
+      marcadorA: num("marcadorA"),
+      marcadorB: num("marcadorB"),
+      estado: v("estado") as any,
+      ganador: g === "A" || g === "B" ? g : undefined,
+      fase: v("fase") as any,
+    });
+  }
+  function syncPartidoCard(card: HTMLElement) {
+    const nameOf = (id: string) => getEquipo(id, getEquipos())?.nombre;
+    const aId = q<HTMLSelectElement>(card, '[data-pf="teamA"]')?.value || "";
+    const bId = q<HTMLSelectElement>(card, '[data-pf="teamB"]')?.value || "";
+    const sel = q<HTMLSelectElement>(card, '[data-pf="ganador"]');
+    const oA = sel?.querySelector('option[value="A"]');
+    const oB = sel?.querySelector('option[value="B"]');
+    if (oA) oA.textContent = "Gana: " + (aId ? nameOf(aId) ?? "A" : "A");
+    if (oB) oB.textContent = "Gana: " + (bId ? nameOf(bId) ?? "B" : "B");
+    const fase = (q<HTMLSelectElement>(card, '[data-pf="fase"]')?.value ?? "clasificatorio") as any;
+    const gol = q<HTMLElement>(card, "[data-gol]");
+    if (gol) gol.textContent = "primero a " + golObjetivo(fase);
+  }
+
+  /* ---------- Pestañas ---------- */
+  function setTab(name: string) {
+    document.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== name));
+    document.querySelectorAll<HTMLElement>(".tab-btn").forEach((b) => {
+      const on = b.dataset.tab === name;
+      b.classList.toggle("bg-mundo-orange", on);
+      b.classList.toggle("text-black", on);
+      b.classList.toggle("text-white/60", !on);
+    });
+    try {
+      localStorage.setItem("mundialito-tab", name);
+    } catch {
+      /* noop */
+    }
+  }
+
+  function init() {
+    if (!document.getElementById("partidos-list")) return;
+
+    let savedTab = "equipos";
+    try {
+      savedTab = localStorage.getItem("mundialito-tab") || "equipos";
+    } catch {
+      /* noop */
+    }
+    setTab(savedTab);
+    document.querySelectorAll<HTMLElement>(".tab-btn").forEach((b) =>
+      b.addEventListener("click", () => setTab(b.dataset.tab!)),
+    );
+
+    renderEquipos();
+    renderPartidos();
+
+    // Equipos
+    const eqList = document.getElementById("equipos-list");
+    eqList?.addEventListener("input", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>("[data-team]");
+      if (card) gatherEquipo(card);
+    });
+    eqList?.addEventListener("change", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>("[data-team]");
+      if (card) {
+        gatherEquipo(card);
+        renderPartidos(); // refresca nombres en los selects de partidos
+      }
+    });
+    eqList?.addEventListener("click", (e) => {
+      const del = (e.target as HTMLElement).closest<HTMLElement>("[data-del-team]");
+      const card = del?.closest<HTMLElement>("[data-team]");
+      if (del && card && confirm("¿Borrar este equipo?")) {
+        deleteEquipo(card.dataset.team!);
+        renderEquipos();
+        renderPartidos();
+      }
+    });
+    document.getElementById("add-equipo")?.addEventListener("click", () => {
+      addEquipo();
+      renderEquipos();
+    });
+
+    // Partidos
+    const pList = document.getElementById("partidos-list");
+    pList?.addEventListener("input", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>("[data-partido]");
+      const f = (e.target as HTMLElement).dataset.pf;
+      if (card && (f === "marcadorA" || f === "marcadorB")) gatherPartido(card);
+    });
+    pList?.addEventListener("change", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>("[data-partido]");
+      if (card) {
+        gatherPartido(card);
+        syncPartidoCard(card);
+      }
+    });
+    pList?.addEventListener("click", (e) => {
+      const del = (e.target as HTMLElement).closest<HTMLElement>("[data-del-partido]");
+      const card = del?.closest<HTMLElement>("[data-partido]");
+      if (del && card && confirm("¿Borrar este partido?")) {
+        deletePartido(card.dataset.partido!);
+        renderPartidos();
+      }
+    });
+    document.getElementById("add-partido")?.addEventListener("click", () => {
+      addPartido();
+      renderPartidos();
+    });
+
+    document.getElementById("reset-all")?.addEventListener("click", () => {
+      if (confirm("¿Borrar TODO: equipos y partidos?")) {
+        resetAll();
+        renderEquipos();
+        renderPartidos();
+      }
+    });
+  }
+
+  document.addEventListener("astro:page-load", init);
+</script>
