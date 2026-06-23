@@ -27,6 +27,17 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>{title ? `${title} · ${EVENTO.titulo}` : EVENTO.titulo}</title>
+    {/* PWA: funciona offline e instalable (solo en producción) */}
+    {
+      import.meta.env.PROD && (
+        <Fragment>
+          <link rel="manifest" href="/manifest.webmanifest" />
+          <meta name="theme-color" content="#ff8200" />
+          <link rel="apple-touch-icon" href="/pwa-192.png" />
+          <script is:inline src="/registerSW.js"></script>
+        </Fragment>
+      )
+    }
     {/* Navegación SPA: mantiene la pantalla completa al cambiar de vista */}
     <ClientRouter />
   </head>
