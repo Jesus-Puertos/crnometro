@@ -7,11 +7,10 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "preview": "PORT=4500 node ./dist/server/entry.mjs",
+    "preview": "astro preview --port 4500",
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/node": "^10.1.4",
     "@astrojs/react": "^5.0.7",
     "@fontsource/poppins": "^5.2.7",
     "@react-three/drei": "^10.7.7",

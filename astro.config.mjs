@@ -1,13 +1,13 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
-import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
+// Sitio 100% estático: todos los datos viven en el navegador (localStorage),
+// así se despliega en Vercel/Netlify/cualquier hosting estático sin servidor.
 export default defineConfig({
-  output: "server",
-  adapter: node({ mode: "standalone" }),
+  output: "static",
   integrations: [react()],
   // Puerto 4500 para no chocar con el proyecto h-ayuntamiento (que usa 4321).
   server: { host: true, port: 4500 },
